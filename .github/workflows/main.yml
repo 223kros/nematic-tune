@@ -1,0 +1,35 @@
+name: Build Nematic Tune (Windows VST3)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar (CMake + JUCE)
+        run: cmake -S . -B build -A x64
+
+      - name: Compilar el VST3
+        run: cmake --build build --config Release --target NematicTune_VST3 --parallel
+
+      - name: Empaquetar
+        shell: pwsh
+        run: |
+          $bundle = Get-ChildItem -Path build -Recurse -Directory -Filter "Nematic Tune.vst3" | Select-Object -First 1
+          if (-not $bundle) { throw "No se encontro 'Nematic Tune.vst3' despues de compilar" }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -Path $bundle.FullName -Destination dist -Recurse
+          Copy-Item -Path installer\* -Destination dist
+          Get-ChildItem -Path dist -Recurse | Select-Object FullName, Length
+
+      - name: Subir el plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nematic-Tune-VST3-Windows
+          path: dist
+          if-no-files-found: error
